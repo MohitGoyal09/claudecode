@@ -1,6 +1,6 @@
 from typing import Any, AsyncGenerator
 from openai import APIConnectionError, AsyncOpenAI , RateLimitError , APIError
-from .response import TextDelta, EventType, StreamEvent, TokenUsage
+from .response import TextDelta, StreamEventType, StreamEvent, TokenUsage
 import asyncio
 import os
 from dotenv import load_dotenv
@@ -52,7 +52,7 @@ class LLMClient:
                     await asyncio.sleep(wait_time)
                    
                 else:
-                    yield StreamEvent(type=EventType.ERROR, 
+                    yield StreamEvent(type=StreamEventType.ERROR, 
                     error=f"Rate limit exceeded: {e.message}")
 
                     return
@@ -63,7 +63,7 @@ class LLMClient:
                     await asyncio.sleep(wait_time)
                    
                 else:
-                    yield StreamEvent(type=EventType.ERROR, 
+                    yield StreamEvent(type=StreamEventType.ERROR, 
                     error=f"API connection error: {e.message}")
 
                     return
@@ -73,14 +73,14 @@ class LLMClient:
                     await asyncio.sleep(wait_time)
                    
                 else:
-                    yield StreamEvent(type=EventType.ERROR, 
+                    yield StreamEvent(type=StreamEventType.ERROR, 
                     error=f"API error: {e.message}")
                     return 
 
     async def _stream_response(self,client : AsyncOpenAI , kwargs : dict[str , Any]) -> AsyncGenerator[StreamEvent , None]:
         response = await client.chat.completions.create(**kwargs)
 
-        useage : TokenUsage | None = None
+        usage : TokenUsage | None = None
         finish_reason : str | None = None
         
         async for chunk in response:
@@ -104,11 +104,11 @@ class LLMClient:
             
             if delta.content:
                 yield StreamEvent(
-                    type = EventType.TEXT_DELTA , 
+                    type = StreamEventType.TEXT_DELTA , 
                     text_delta = TextDelta(content = delta.content))
 
         
-        yield StreamEvent(type = EventType.MESSAGE_COMPLETE , finish_reason = finish_reason, token_usage = usage)
+        yield StreamEvent(type = StreamEventType.MESSAGE_COMPLETE , finish_reason = finish_reason, token_usage = usage)
 
     async def _non_stream_response(self , client : AsyncOpenAI , kwargs : dict[str , Any]):
         
@@ -119,7 +119,7 @@ class LLMClient:
        text_delta = None
        if message.content:
           text_delta = TextDelta(content = message.content)
-          yield StreamEvent(type = EventType.TEXT_DELTA , text_delta = text_delta)
+          yield StreamEvent(type = StreamEventType.TEXT_DELTA , text_delta = text_delta)
        
        usage = None
        if response.usage:
@@ -131,7 +131,7 @@ class LLMClient:
           )
        
        yield StreamEvent(
-        type = EventType.MESSAGE_COMPLETE , 
+        type = StreamEventType.MESSAGE_COMPLETE , 
         text_delta = text_delta , 
         finish_reason = choice.finish, 
         token_usage = usage)
