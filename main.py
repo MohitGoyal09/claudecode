@@ -5,6 +5,7 @@ from typing import Any
 import sys
 from agent.events import AgentEventType
 from ui.tui import TUI, get_console
+from pathlib import Path
 
 
 console = get_console()
@@ -15,10 +16,38 @@ class CLI:
         self.agent: Agent | None = None
         self.tui = TUI(console)
 
-    async def run_single(self, message: str):
+    async def run_single(self, message: str) -> str | None:
         async with Agent() as agent:
             self.agent = agent
             return await self._process_message(message)
+
+    async def run_interactive(self) -> str | None :
+        self.tui.print_welcome(
+            "AI Agent",
+            lines=[
+                f"model: Minimax2.5",
+                f"cwd: {Path.cwd()}",
+                "commands: /help /config /approval /model /exit",
+            ],
+        )
+
+        async with Agent() as agent:
+            self.agent = agent
+
+            while True:
+                try : 
+                    user_input = console.input("\n[user]>[/user] ").strip()
+                    if not user_input:
+                        continue
+                    await self._process_message(user_input)
+
+
+                except KeyboardInterrupt:
+                    console.print("\n[dim]Use /exit to quit[/dim]")
+                except EOFError:
+                    break
+        console.print("\n[dim]GoodBye![/dim]")
+        return
 
     def _get_tool_kind(self, tool_name: str) -> str | None:
         tool_kind = None
@@ -92,6 +121,8 @@ def main(prompt: str | None = None):
 
         if result is None:
             sys.exit(1)
+    else:
+        asyncio.run(cli.run_interactive())
 
 
 main()
