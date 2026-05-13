@@ -4,6 +4,8 @@ import click
 from typing import Any
 import sys
 from agent.events import AgentEventType
+from config.config import Config
+from config.loader import load_config
 from ui.tui import TUI, get_console
 from pathlib import Path
 
@@ -12,35 +14,35 @@ console = get_console()
 
 
 class CLI:
-    def __init__(self):
+    def __init__(self, config: Config):
         self.agent: Agent | None = None
-        self.tui = TUI(console)
+        self.tui = TUI(config=config, console=console)
+        self.config = config
 
     async def run_single(self, message: str) -> str | None:
-        async with Agent() as agent:
+        async with Agent(config=self.config) as agent:
             self.agent = agent
             return await self._process_message(message)
 
-    async def run_interactive(self) -> str | None :
+    async def run_interactive(self) -> str | None:
         self.tui.print_welcome(
             "AI Agent",
             lines=[
-                f"model: Minimax2.5",
-                f"cwd: {Path.cwd()}",
+                f"{self.config.model_name}",
+                f"cwd: {self.config.cwd}",
                 "commands: /help /config /approval /model /exit",
             ],
         )
 
-        async with Agent() as agent:
+        async with Agent(config=self.config) as agent:
             self.agent = agent
 
             while True:
-                try : 
+                try:
                     user_input = console.input("\n[user]>[/user] ").strip()
                     if not user_input:
                         continue
                     await self._process_message(user_input)
-
 
                 except KeyboardInterrupt:
                     console.print("\n[dim]Use /exit to quit[/dim]")
@@ -51,7 +53,7 @@ class CLI:
 
     def _get_tool_kind(self, tool_name: str) -> str | None:
         tool_kind = None
-        tool = self.agent.tool_registry.get(tool_name)
+        tool = self.agent.session.tool_registry.get(tool_name)
         if not tool:
             tool_kind = None
 
@@ -66,7 +68,6 @@ class CLI:
         final_response: str | None = None
 
         async for event in self.agent.run(message):
-            
             if event.type == AgentEventType.TEXT_DELTA:
                 content = event.data.get("content", "")
                 if not assistant_streaming:
@@ -114,8 +115,28 @@ async def run(messages: list[dict[str, Any]]):
 
 @click.command()
 @click.argument("prompt", required=False)
-def main(prompt: str | None = None):
-    cli = CLI()
+@click.option(
+    "--cwd",
+    "-c",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    help="Current working directory",
+)
+def main(prompt: str | None, cwd: Path | None):
+
+    try:
+        config = load_config(cwd)
+    except Exception as e:
+        console.print(f"[error]Configuration Error : {e}[/error]")
+
+    errors = config.validate()
+
+    if errors:
+        for error in errors:
+            console.print(f"[error]Configuration Error : {error}[/error]")
+
+        sys.exit(1)
+    cli = CLI(config)
+
     if prompt:
         result = asyncio.run(cli.run_single(prompt))
 

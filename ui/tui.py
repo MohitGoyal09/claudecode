@@ -11,6 +11,7 @@ from rich.prompt import Prompt
 from rich.console import Group
 from rich.syntax import Syntax
 from rich.markdown import Markdown
+from config.config import Config
 from tools.base import ToolConfirmation
 from utils.paths import display_path_rel_to_cwd
 import re
@@ -55,9 +56,10 @@ def get_console() -> Console:
 
 
 class TUI:
-    def __init__(self, console: Console | None = None) -> None:
+    def __init__(self,  config : Config , console: Console | None = None ) -> None:
         self.console = console or get_console()
-        self.cwd = Path.cwd()
+        self.config = config
+        self.cwd = self.config.cwd
         self._assistant_stream_open = False
         self._tool_args_by_call_id: dict[str, dict[str, Any]] = {}
         self._max_block_tokens: int = 25000

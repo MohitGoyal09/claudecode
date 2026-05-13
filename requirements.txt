@@ -2,3 +2,5 @@ openai
 python-dotenv
 click
 tiktoken
+platformdirs
+tomli

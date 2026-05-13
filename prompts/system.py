@@ -1,9 +1,12 @@
 from datetime import datetime
 import platform
 
+from config.config import Config
+
 
 
 def get_system_prompt(
+    config : Config
    
 ) -> str:
     parts = []
@@ -12,16 +15,22 @@ def get_system_prompt(
     parts.append(_get_identity_section())
     # Environment
   
-
-
     # AGENTS.md spec
     parts.append(_get_agents_md_section())
 
     # Security guidelines
     parts.append(_get_security_section())
 
+    if config.developer_instructions:
+        parts.append(_get_developer_instructions_section(config.developer_instructions))
+
+    if config.user_instructions:
+        parts.append(_get_user_instructions_section(config.user_instructions))
+
  
     parts.append(_get_operational_section())
+
+    
 
     return "\n\n".join(parts)
 
@@ -41,7 +50,7 @@ Your capabilities:
 You are pair programming with the user to help them accomplish their goals. You should be proactive, thorough and focused on delivering high-quality results."""
 
 
-# def _get_environment_section(config: Config) -> str:
+def _get_environment_section(config: Config) -> str:
     """Generate the environment section."""
     now = datetime.now()
     os_info = f"{platform.system()} {platform.release()}"
