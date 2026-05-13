@@ -52,13 +52,10 @@ class CLI:
         return
 
     def _get_tool_kind(self, tool_name: str) -> str | None:
-        tool_kind = None
         tool = self.agent.session.tool_registry.get(tool_name)
         if not tool:
-            tool_kind = None
-
-        tool_kind = tool.kind.value
-        return tool_kind
+            return None
+        return tool.kind.value
 
     async def _process_message(self, message: str) -> str | None:
         if not self.agent:
@@ -96,6 +93,9 @@ class CLI:
             elif event.type == AgentEventType.TOOL_CALL_COMPLETE:
                 tool_name = event.data.get("name", "unknown")
                 tool_kind = self._get_tool_kind(tool_name)
+                metadata: dict[str, Any] = event.data.get("metadata") or {}
+                # diff is on the event payload (AgentEvent.tool_call_complete), not inside metadata
+                diff: str | None = event.data.get("diff")
                 self.tui.tool_call_complete(
                     event.data.get("call_id", ""),
                     tool_name,
@@ -103,8 +103,9 @@ class CLI:
                     event.data.get("success", False),
                     event.data.get("output", ""),
                     event.data.get("error"),
-                    event.data.get("metadata"),
+                    metadata,
                     event.data.get("truncated", False),
+                    diff=diff,
                 )
         return final_response
 

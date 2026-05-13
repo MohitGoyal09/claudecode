@@ -56,13 +56,14 @@ def get_console() -> Console:
 
 
 class TUI:
-    def __init__(self,  config : Config , console: Console | None = None ) -> None:
+    def __init__(self, config: Config, console: Console | None = None) -> None:
         self.console = console or get_console()
         self.config = config
         self.cwd = self.config.cwd
         self._assistant_stream_open = False
         self._tool_args_by_call_id: dict[str, dict[str, Any]] = {}
         self._max_block_tokens: int = 25000
+        self._tool_start_preview_tokens: int = 4000
 
     def begin_assistant(self) -> None:
         self.console.print()
@@ -106,12 +107,30 @@ class TUI:
         table.add_column(style="muted", justify="right", no_wrap=True)
         table.add_column(style="code", overflow="fold")
 
+        path_hint = args.get("path") if isinstance(args.get("path"), str) else None
+
         for key, value in self._ordered_args(tool_name, args):
-            if isinstance(value, str):
-                if key in {"content", "old_string", "new_string"}:
-                    line_count = len(value.splitlines()) or 0
-                    byte_count = len(value.encode("utf-8", errors="replace"))
-                    value = f"<{line_count} lines • {byte_count} bytes>"
+            if isinstance(value, str) and key in {"content", "old_string", "new_string"}:
+                lang = (
+                    self._guess_language(path_hint)
+                    if key == "content"
+                    else "diff"
+                )
+                preview = truncate_text(
+                    value,
+                    self.config.model_name,
+                    self._tool_start_preview_tokens,
+                )
+                table.add_row(
+                    key,
+                    Syntax(
+                        preview,
+                        lang,
+                        theme="monokai",
+                        word_wrap=True,
+                    ),
+                )
+                continue
 
             if isinstance(value, bool):
                 value = str(value)
@@ -240,7 +259,8 @@ class TUI:
         output: str,
         error: str | None,
         metadata: dict[str, Any] | None,
-        truncated: bool,
+        truncated: bool = False,
+        diff: str | None = None,
     ) -> None:
 
         border_style = f"tool.{tool_kind}" if tool_kind else "tool"
@@ -261,37 +281,52 @@ class TUI:
 
             if name == "read_file" and success:
                 if primary_path:
-                    start_line, code = self._extract_read_file_code(output)
+                    extracted = self._extract_read_file_code(output)
+                    if extracted:
+                        start_line, code = extracted
+                        shown_start = metadata.get("shown_start")
+                        shown_end = metadata.get("shown_end")
+                        total_lines = metadata.get("total_lines")
+                        pl = self._guess_language(primary_path)
 
-                    shown_start = metadata.get("shown_start")
-                    shown_end = metadata.get("shown_end")
-                    total_lines = metadata.get("total_lines")
-                    pl = self._guess_language(primary_path)
+                        header_parts = [display_path_rel_to_cwd(primary_path, self.cwd)]
+                        header_parts.append(" • ")
 
-                    header_parts = [display_path_rel_to_cwd(primary_path, self.cwd)]
-                    header_parts.append(" • ")
+                        if shown_start and shown_end and total_lines:
+                            header_parts.append(
+                                f"lines {shown_start}-{shown_end} of {total_lines}"
+                            )
 
-                    if shown_start and shown_end and total_lines:
-                        header_parts.append(
-                            f"lines {shown_start}-{shown_end} of {total_lines}"
+                        header = "".join(header_parts)
+                        blocks.append(Text(header, style="muted"))
+                        blocks.append(
+                            Syntax(
+                                code,
+                                pl,
+                                theme="monokai",
+                                line_numbers=True,
+                                start_line=start_line,
+                                word_wrap=False,
+                            )
                         )
-
-                    header = "".join(header_parts)
-                    blocks.append(Text(header, style="muted"))
-                    blocks.append(
-                        Syntax(
-                            code,
-                            pl,
-                            theme="monokai",
-                            line_numbers=True,
-                            start_line=start_line,
-                            word_wrap=False,
+                    else:
+                        output_display = truncate_text(
+                            output,
+                            self.config.model_name,
+                            self._max_block_tokens,
                         )
-                    )
+                        blocks.append(
+                            Syntax(
+                                output_display,
+                                "text",
+                                theme="monokai",
+                                word_wrap=False,
+                            )
+                        )
                 else:
                     output_display = truncate_text(
                         output,
-                        "",
+                        self.config.model_name,
                         self._max_block_tokens,
                     )
                     blocks.append(
@@ -302,8 +337,34 @@ class TUI:
                             word_wrap=False,
                         )
                     )
+            elif name in {"write_file", "edit"} and success:
+                output_line = output.strip() if output.strip() else "Completed"
+                blocks.append(Text(output_line, style="muted"))
+                if diff and diff.strip():
+                    diff_display = truncate_text(
+                        diff,
+                        self.config.model_name,
+                        self._max_block_tokens,
+                    )
+                    blocks.append(
+                        Syntax(
+                            diff_display,
+                            "diff",
+                            theme="monokai",
+                            word_wrap=True,
+                        )
+                    )
+                else:
+                    blocks.append(
+                        Text(
+                            "(no diff text returned; see message above)",
+                            style="muted",
+                        )
+                    )
         else:
-            output_display = truncate_text(output, "", self._max_block_tokens)
+            output_display = truncate_text(
+                output, self.config.model_name, self._max_block_tokens
+            )
             blocks.append(
                 Syntax(output_display, "text", theme="monokai", word_wrap=False)
             )

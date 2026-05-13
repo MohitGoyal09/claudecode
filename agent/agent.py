@@ -1,4 +1,5 @@
 from __future__ import annotations
+import json
 from typing import AsyncGenerator, Callable
 from agent.events import AgentEvent, AgentEventType
 from agent.session import Session
@@ -9,10 +10,7 @@ from tools.base import ToolConfirmation
 
 
 class Agent:
-    def __init__(
-        self,
-        config: Config
-    ):
+    def __init__(self, config: Config):
         self.config = config
         self.session: Session | None = Session(self.config)
 
@@ -71,7 +69,7 @@ class Agent:
                             "type": "function",
                             "function": {
                                 "name": tc.name,
-                                "arguments": str(tc.arguments),
+                                "arguments": json.dumps(tc.arguments),
                             },
                         }
                         for tc in tool_calls
@@ -80,19 +78,8 @@ class Agent:
                     else None
                 ),
             )
-            if response_text:
-                yield AgentEvent.text_complete(response_text)
-                self.session.loop_detector.record_action(
-                    "response",
-                    text=response_text,
-                )
 
             if not tool_calls:
-                if usage:
-                    self.session.context_manager.set_latest_usage(usage)
-                    self.session.context_manager.add_usage(usage)
-
-         
                 return
 
             tool_call_results: list[ToolResultMessage] = []
@@ -103,8 +90,6 @@ class Agent:
                     tool_call.name,
                     tool_call.arguments,
                 )
-
-                
 
                 result = await self.session.tool_registry.invoke(
                     tool_call.name,
@@ -132,10 +117,6 @@ class Agent:
                     tool_result.content,
                 )
 
-
-
-
-           
         yield AgentEvent.agents_error(f"Maximum turns ({max_turns}) reached")
 
     async def __aenter__(self) -> Agent:
