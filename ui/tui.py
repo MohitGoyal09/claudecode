@@ -383,6 +383,32 @@ class TUI:
                             word_wrap=True,
                         )
                     )
+            elif name == "list_dir" and success:
+              entries = metadata.get("entries")
+              path = metadata.get("path")
+              summary = []
+              if isinstance(path, str):
+                 summary.append(path)
+
+              if isinstance(entries, int):
+                 summary.append(f"{entries} entries")
+
+              if summary:
+                 blocks.append(Text(" • ".join(summary), style="muted"))
+
+              output_display = truncate_text(
+                 output,
+                 self.config.model_name,
+                 self._max_block_tokens,
+             )
+              blocks.append(
+                 Syntax(
+                     output_display,
+                     "text",
+                     theme="monokai",
+                     word_wrap=True,
+                 )
+            )
         else:
             output_display = truncate_text(
                 output, self.config.model_name, self._max_block_tokens
