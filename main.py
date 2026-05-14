@@ -94,7 +94,6 @@ class CLI:
                 tool_name = event.data.get("name", "unknown")
                 tool_kind = self._get_tool_kind(tool_name)
                 metadata: dict[str, Any] = event.data.get("metadata") or {}
-                # diff is on the event payload (AgentEvent.tool_call_complete), not inside metadata
                 diff: str | None = event.data.get("diff")
                 self.tui.tool_call_complete(
                     event.data.get("call_id", ""),
