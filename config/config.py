@@ -5,16 +5,24 @@ from pathlib import Path
 from typing import Any
 from pydantic import BaseModel, Field, model_validator
 
-
+class ShellEnvironmentPolicy(BaseModel):
+    ignore_default_excludes: bool = False
+    exclude_patterns: list[str] = Field(
+        default_factory=lambda: ["*KEY*", "*TOKEN*", "*SECRET*"]
+    )
+    set_vars: dict[str, str] = Field(default_factory=dict)
+    
 class ModelConfig(BaseModel):
     name : str = "minimax/minimax-m2.5:free"
     temperature: float = Field(default=1, ge=0.0, le=2.0)
     context_window: int = 256_000
-
+    
 
 class Config(BaseModel):
     model : ModelConfig = Field(default_factory=ModelConfig)
     cwd : Path = Field(decimal_factory = Path.cwd)
+    shell_environment : ShellEnvironmentPolicy = Field(default_factory=ShellEnvironmentPolicy)
+
 
     max_turns : int = 100
     max_tool_output_tokens : int = 50_000

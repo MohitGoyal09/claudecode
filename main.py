@@ -103,6 +103,7 @@ class CLI:
                     event.data.get("output", ""),
                     event.data.get("error"),
                     metadata,
+                    event.data.get("exit_code"),
                     event.data.get("truncated", False),
                     diff=diff,
                 )

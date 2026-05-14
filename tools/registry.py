@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Any
+from config.config import Config
 from tools.base import Tool, ToolInvocation, ToolResult
 import logging
 
@@ -83,11 +84,11 @@ class ToolRegistry:
                 }
             )
 
-def create_default_registery() -> ToolRegistry:
+def create_default_registery(config : Config) -> ToolRegistry:
     registry = ToolRegistry()
     
     for tool_class in get_all_builtin_tools():
-        registry.register(tool_class())
+        registry.register(tool_class(config))
 
     return registry
 

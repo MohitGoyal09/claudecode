@@ -9,6 +9,8 @@ from enum import Enum
 
 from pydantic.json_schema import model_json_schema
 
+from config.config import Config
+
 
 class ToolKind(str, Enum):
     READ = "read"
@@ -65,6 +67,7 @@ class ToolResult(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     diff_text: str | None = None
+    exit_code : int | None = None
 
     @classmethod
     def error_result(cls, error: str, output: str = "", **kwargs: Any):
@@ -92,8 +95,8 @@ class Tool(abc.ABC):
     description: str = "Base tool description"
     kind: ToolKind = ToolKind.READ
 
-    def __init__(self) -> None:
-        pass
+    def __init__(self , config : Config) -> None:
+        self.config = config
 
     @property
     def schema(self) -> dict[str, Any] | type[BaseModel]:

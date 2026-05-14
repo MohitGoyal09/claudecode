@@ -259,8 +259,10 @@ class TUI:
         output: str,
         error: str | None,
         metadata: dict[str, Any] | None,
+        exit_code : int | None,
         truncated: bool = False,
         diff: str | None = None,
+       
     ) -> None:
 
         border_style = f"tool.{tool_kind}" if tool_kind else "tool"
@@ -273,6 +275,9 @@ class TUI:
             ("  ", "muted"),
             (f"#{call_id[:8]}", "muted"),
         )
+        
+
+        args = self._tool_args_by_call_id.get(call_id , {})
 
         primary_path = None
         blocks = []
@@ -359,6 +364,23 @@ class TUI:
                         Text(
                             "(no diff text returned; see message above)",
                             style="muted",
+                        )
+                    )
+            elif name == 'shell':
+                command = args.get('command')
+                if isinstance(command , str) and command.strip():
+                    blocks.append(Text(f'$ {command.strip()}', style = 'muted'))
+                
+                if exit_code is not None:
+                    blocks.append(Text(f'exit_code={exit_code}' , style = 'muted'))
+                
+                output_display = truncate_text(output , self.config.model_name , self._max_block_tokens)
+                blocks.append(
+                        Syntax(
+                            output_display,
+                            "text",
+                            theme="monokai",
+                            word_wrap=True,
                         )
                     )
         else:

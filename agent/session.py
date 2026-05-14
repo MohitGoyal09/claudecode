@@ -10,7 +10,7 @@ class Session:
     def __init__(self, config: Config):
         self.config = config
         self.client = LLMClient(config=config)
-        self.tool_registry = create_default_registery()
+        self.tool_registry = create_default_registery(config=config)
         self.context_manager: ContextManager | None = ContextManager(config=config)
 
         self.session_id = str(uuid.uuid4())
