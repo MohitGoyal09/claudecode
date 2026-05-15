@@ -4,3 +4,4 @@ click
 tiktoken
 platformdirs
 tomli
+ddgs
