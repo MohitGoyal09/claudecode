@@ -6,13 +6,14 @@ A terminal-based AI coding agent built in Python. Streams LLM responses in real-
 
 ```
 main.py          ── CLI entry point, orchestrates Agent + TUI
-agent/           ── Core agent loop, event definitions
+agent/           ── Core agent loop, event definitions, session management
 client/          ── OpenRouter LLM client (streaming + non-streaming)
 context/         ── Conversation context & message management
 tools/           ── Pluggable tool framework (read_file, shell, edit, ...)
 ui/              ── Rich-based terminal UI (panels, syntax highlighting)
 utils/           ── Path resolution, text processing, token counting
 prompts/         ── System prompt generation
+config/          ── Configuration loading and validation
 ```
 
 ### Event flow
@@ -65,6 +66,12 @@ Example:
 python main.py "read main.py and explain what it does"
 ```
 
+Or run in interactive mode:
+
+```bash
+python main.py
+```
+
 The agent will respond with streaming text output. For file/tool requests, you'll see a tool-call panel appear, execute, and display results inline.
 
 ## Project Structure
@@ -77,7 +84,8 @@ claudecode/
 │
 ├── agent/
 │   ├── agent.py             # Core agent loop, tool orchestration
-│   └── events.py            # AgentEvent types (TEXT_DELTA, TOOL_CALL, etc.)
+│   ├── events.py            # AgentEvent types (TEXT_DELTA, TOOL_CALL, etc.)
+│   └── session.py           # Session management (client, tools, context)
 │
 ├── client/
 │   ├── llm_client.py        # OpenRouter API client (streaming + retries)
@@ -89,9 +97,18 @@ claudecode/
 ├── tools/
 │   ├── base.py              # Abstract Tool, ToolInvocation, ToolResult
 │   ├── registry.py          # ToolRegistry (register, lookup, invoke)
-│   └── builtin/
-│       ├── __init__.py      # Tool exports
-│       └── read_file.py     # Read file tool
+│   └── builtin/             # Built-in tools
+│       ├── read_file.py     # Read file tool
+│       ├── write_file.py    # Write file tool
+│       ├── edit_file.py     # Edit file tool
+│       ├── shell.py         # Shell command execution
+│       ├── list_dir.py      # Directory listing
+│       ├── grep.py          # Search files by pattern
+│       ├── glob.py          # Glob pattern matching
+│       ├── todo.py          # Task management
+│       ├── memory.py        # Persistent memory storage
+│       ├── web_search.py    # Web search
+│       └── web_fetch.py    # Web content fetching
 │
 ├── ui/
 │   └── tui.py               # Rich terminal UI (panels, syntax highlight)
@@ -100,8 +117,12 @@ claudecode/
 │   ├── paths.py             # Path resolution, binary detection
 │   └── text.py              # Text truncation, token counting
 │
-└── prompts/
-    └── system.py            # System prompt builder
+├── prompts/
+│   └── system.py            # System prompt builder
+│
+└── config/
+    ├── config.py            # Configuration models
+    └── loader.py            # Configuration loading
 ```
 
 ## Key Design Decisions
@@ -114,12 +135,45 @@ claudecode/
 
 **Retry with backoff.** The LLM client retries on rate limits, connection errors, and API errors with exponential backoff (up to 3 attempts).
 
+**Session-based.** Each interaction creates a `Session` that manages the LLM client, tool registry, and conversation context. Sessions have unique IDs for tracking.
+
 ## Configuration
+
+### Environment Variables
 
 | Environment Variable  | Description                                                   |
 | --------------------- | ------------------------------------------------------------- |
 | `OPENROUTER_API_KEY`  | OpenRouter API key (required)                                 |
 | `OPENROUTER_BASE_URL` | OpenRouter base URL (default: `https://openrouter.ai/api/v1`) |
+
+### Configuration File
+
+The agent uses a `config.yaml` file in the working directory with the following options:
+
+```yaml
+model:
+  name: "minimax/minimax-m2.5:free"  # Model to use
+  temperature: 1.0                     # Sampling temperature (0-2)
+  context_window: 256000             # Model context window size
+
+cwd: "."                              # Working directory
+
+shell_environment:
+  ignore_default_excludes: false
+  exclude_patterns:                   # Patterns to exclude from shell output
+    - "*KEY*"
+    - "*TOKEN*"
+    - "*SECRET*"
+  set_vars: {}                        # Environment variables to set
+
+max_turns: 100                        # Maximum agent turns per message
+max_tool_output_tokens: 50000        # Max tokens for tool output truncation
+
+developer_instructions: null         # Additional system instructions
+user_instructions: null              # Additional user instructions
+
+debug: false                          # Enable debug mode
+```
 
 ## Dependencies
 
@@ -131,17 +185,32 @@ claudecode/
 | `pydantic`      | Data validation & JSON schema generation          |
 | `python-dotenv` | Environment variable loading                      |
 | `tiktoken`      | Token counting                                    |
+| `httpx`         | HTTP client for web tools                         |
 
 ## Status
 
-Early development. Working features:
+Working features:
 
 - [x] Streaming LLM responses via OpenRouter
 - [x] Rich terminal UI with assistant/tool panels
-- [x] `read_file` tool with syntax-highlighted output
+- [x] Built-in tools:
+  - [x] `read_file` - Read file contents with syntax highlighting
+  - [x] `write_file` - Create/write files
+  - [x] `edit_file` - Edit files with diff display
+  - [x] `shell` - Execute shell commands
+  - [x] `list_dir` - List directory contents
+  - [x] `grep` - Search files by pattern
+  - [x] `glob` - Glob pattern matching
+  - [x] `todo` - Task management
+  - [x] `memory` - Persistent memory storage
+  - [x] `web_search` - Web search
+  - [x] `web_fetch` - Fetch web content
 - [x] Tool framework with registry and schema generation
 - [x] Conversation context management
 - [x] System prompt with security and operational guidelines
+- [x] Session management with unique IDs
+- [x] Configuration via YAML file
+- [x] Token counting and output truncation
 
 ## License
 
