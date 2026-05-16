@@ -1,3 +1,4 @@
+from re import U
 from config.config import Config
 from prompts.system import get_system_prompt
 from dataclasses import dataclass, field
@@ -29,9 +30,9 @@ class MessageItem:
 
 
 class ContextManager:
-    def __init__(self, config: Config):
+    def __init__(self, config: Config , user_memory : str | None):
         self.config = config
-        self._system_prompt = get_system_prompt(config=config)
+        self._system_prompt = get_system_prompt(config=config , user_memory=user_memory)
         self._model_name = self.config.model_name
         self._messages: list[MessageItem] = []
 
